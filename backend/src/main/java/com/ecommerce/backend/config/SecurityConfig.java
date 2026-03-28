@@ -32,7 +32,9 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/api/**") // Disable CSRF for stateless JWT API endpoints
+                        .ignoringRequestMatchers("/api/**") // CSRF disabled for stateless JWT API endpoints
+                        // CSRF protection not needed for JWT-based REST APIs as tokens are sent in headers, not cookies
+                        // and the API is stateless. If web forms are added later, CSRF should be enabled for those endpoints.
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(

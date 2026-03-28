@@ -6,6 +6,7 @@ import com.ecommerce.backend.repository.CartRepository;
 import com.ecommerce.backend.repository.OrderRepository;
 import com.ecommerce.backend.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -72,8 +73,13 @@ public class OrderService {
 
             orderItems.add(item);
 
-            product.setStock(product.getStock() - qty);
-            productRepository.save(product);
+            // Update stock with optimistic locking
+            try {
+                product.setStock(product.getStock() - qty);
+                productRepository.save(product);
+            } catch (ObjectOptimisticLockingFailureException e) {
+                throw new RuntimeException("Product " + product.getName() + " is currently being updated by another user. Please try again.");
+            }
         }
 
         order.setItems(orderItems);

@@ -5,11 +5,15 @@ import com.stripe.Stripe;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PaymentService {
+
+    private static final Logger logger = LoggerFactory.getLogger(PaymentService.class);
 
     @Value("${stripe.secret}")
     private String stripeSecret;
@@ -27,7 +31,9 @@ public class PaymentService {
         if (Stripe.apiKey == null) {
             if (stripeSecret != null && !stripeSecret.trim().isEmpty()) {
                 Stripe.apiKey = stripeSecret.trim();
+                logger.info("Stripe API key initialized successfully");
             } else {
+                logger.error("Stripe secret is not configured. Set stripe.secret via environment or properties.");
                 throw new IllegalStateException("Stripe secret is not configured. Set stripe.secret via environment or properties.");
             }
         }
@@ -38,6 +44,7 @@ public class PaymentService {
             throw new IllegalArgumentException("Order must not be null");
         }
 
+        logger.info("Creating payment session for order ID: {}", order.getId());
         ensureStripeInitialized();
 
         SessionCreateParams params =
@@ -64,6 +71,7 @@ public class PaymentService {
                         .build();
 
         Session session = Session.create(params);
+        logger.info("Payment session created successfully for order ID: {}, session URL: {}", order.getId(), session.getUrl());
 
         return session.getUrl();
     }

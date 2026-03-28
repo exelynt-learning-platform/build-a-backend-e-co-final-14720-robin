@@ -25,6 +25,9 @@ public class Product {
     private int stock;
 
     private String imageUrl;
+
+    @Version
+    private Long version;
 }
 
 
