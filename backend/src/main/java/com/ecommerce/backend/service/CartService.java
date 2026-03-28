@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -34,12 +35,28 @@ public class CartService {
             throw new RuntimeException("Insufficient stock for product: " + product.getName());
         }
 
-        Cart cart = new Cart();
-        cart.setUser(user);
-        cart.setProduct(product);
-        cart.setQuantity(request.getQuantity());
+        // Check if cart item already exists for this user and product
+        Optional<Cart> existingCart = cartRepository.findByUserAndProductId(user, request.getProductId());
 
-        return cartRepository.save(cart);
+        if (existingCart.isPresent()) {
+            // Update existing cart item quantity
+            Cart cart = existingCart.get();
+            int newQuantity = cart.getQuantity() + request.getQuantity();
+
+            if (product.getStock() < newQuantity) {
+                throw new RuntimeException("Insufficient stock for product: " + product.getName());
+            }
+
+            cart.setQuantity(newQuantity);
+            return cartRepository.save(cart);
+        } else {
+            // Create new cart item
+            Cart cart = new Cart();
+            cart.setUser(user);
+            cart.setProduct(product);
+            cart.setQuantity(request.getQuantity());
+            return cartRepository.save(cart);
+        }
     }
 
     public List<Cart> getUserCart(User user) {
