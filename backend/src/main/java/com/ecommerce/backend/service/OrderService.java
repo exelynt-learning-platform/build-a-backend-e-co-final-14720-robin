@@ -4,11 +4,13 @@ import com.ecommerce.backend.dto.OrderItemResponse;
 import com.ecommerce.backend.dto.OrderRequest;
 import com.ecommerce.backend.dto.OrderResponse;
 import com.ecommerce.backend.entity.*;
+import com.ecommerce.backend.exception.InsufficientStockException;
+import com.ecommerce.backend.exception.InvalidRequestException;
+import com.ecommerce.backend.exception.ResourceNotFoundException;
 import com.ecommerce.backend.repository.CartRepository;
 import com.ecommerce.backend.repository.OrderRepository;
 import com.ecommerce.backend.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,34 +35,36 @@ public class OrderService {
         List<Cart> cartItems = cartRepository.findByUser(user);
 
         if (cartItems.isEmpty()) {
-            throw new RuntimeException("Cart is empty");
+            throw new InvalidRequestException("Cart is empty");
         }
 
-        // Calculate total first using BigDecimal for currency precision
+        // Calculate total first using BigDecimal for currency precision.
+        // Products are fetched with a PESSIMISTIC_WRITE lock to prevent concurrent
+        // stock deductions from resulting in negative stock values.
         BigDecimal total = BigDecimal.ZERO;
         for (Cart cart : cartItems) {
-            Product product = cart.getProduct();
-            if (product == null) {
-                throw new RuntimeException("Invalid cart entry with missing product");
+            Product product = productRepository.findByIdWithLock(cart.getProduct().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Product not found: " + cart.getProduct().getId()));
+
+            if (cart.getQuantity() <= 0) {
+                throw new InvalidRequestException("Invalid quantity in cart: " + cart.getQuantity());
             }
 
-            int qty = cart.getQuantity();
-            if (qty <= 0) {
-                throw new RuntimeException("Invalid quantity in cart: " + qty);
+            if (product.getStock() < cart.getQuantity()) {
+                throw new InsufficientStockException(
+                        "Insufficient stock for product: " + product.getName() +
+                        ". Available: " + product.getStock() + ", Requested: " + cart.getQuantity());
             }
 
-            if (product.getStock() < qty) {
-                throw new RuntimeException("Insufficient stock for product: " + product.getName());
-            }
-
-            BigDecimal itemTotal = BigDecimal.valueOf(product.getPrice()).multiply(BigDecimal.valueOf(qty));
+            BigDecimal itemTotal = BigDecimal.valueOf(product.getPrice())
+                    .multiply(BigDecimal.valueOf(cart.getQuantity()));
             total = total.add(itemTotal);
         }
 
         // Round to 2 decimal places for currency
         total = total.setScale(2, RoundingMode.HALF_UP);
 
-        // Build order with correct total
         Order order = Order.builder()
                 .user(user)
                 .totalPrice(total.doubleValue())
@@ -70,16 +74,20 @@ public class OrderService {
 
         List<OrderItem> orderItems = new ArrayList<>();
 
-        // Create order items and update stock with optimistic locking
+        // Second pass: decrement stock and build order items (all under the same lock)
         for (Cart cart : cartItems) {
-            Product product = cart.getProduct();
+            Product product = productRepository.findByIdWithLock(cart.getProduct().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Product not found: " + cart.getProduct().getId()));
+
             int qty = cart.getQuantity();
             BigDecimal price = BigDecimal.valueOf(product.getPrice()).setScale(2, RoundingMode.HALF_UP);
 
-            // Check stock and update atomically
+            // Re-check stock under lock before committing the deduction
             if (product.getStock() < qty) {
-                throw new RuntimeException("Insufficient stock for product: " + product.getName() +
-                    ". Available: " + product.getStock() + ", Requested: " + qty);
+                throw new InsufficientStockException(
+                        "Insufficient stock for product: " + product.getName() +
+                        ". Available: " + product.getStock() + ", Requested: " + qty);
             }
 
             OrderItem item = OrderItem.builder()
@@ -91,20 +99,12 @@ public class OrderService {
 
             orderItems.add(item);
 
-            // Update stock with optimistic locking - this will throw exception if version changed
             product.setStock(product.getStock() - qty);
-            try {
-                productRepository.save(product);
-            } catch (ObjectOptimisticLockingFailureException e) {
-                throw new RuntimeException("Product " + product.getName() +
-                    " is currently being updated by another user. Please try again.");
-            }
+            productRepository.save(product);
         }
 
         order.setItems(orderItems);
-
         Order savedOrder = orderRepository.save(order);
-
         cartRepository.deleteAll(cartItems);
 
         return savedOrder;
@@ -113,13 +113,13 @@ public class OrderService {
     @Transactional
     public Order updateOrderStatus(Long orderId, String status) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
 
         try {
             OrderStatus orderStatus = OrderStatus.valueOf(status.toUpperCase());
             order.setStatus(orderStatus);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid order status: " + status +
+            throw new InvalidRequestException("Invalid order status: " + status +
                 ". Valid statuses are: PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED");
         }
 
@@ -130,6 +130,11 @@ public class OrderService {
         return orderRepository.findByUser(user).stream()
                 .map(this::convertToOrderResponse)
                 .collect(Collectors.toList());
+    }
+
+    public Order getOrderById(Long orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
     }
 
     public OrderResponse convertToOrderResponse(Order order) {
@@ -149,3 +154,4 @@ public class OrderService {
                 items);
     }
 }
+

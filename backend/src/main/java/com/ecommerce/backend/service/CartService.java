@@ -35,7 +35,7 @@ public class CartService {
             throw new InvalidRequestException("Invalid cart request quantity");
         }
 
-        Product product = productRepository.findById(request.getProductId())
+        Product product = productRepository.findByIdWithLock(request.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
         if (product.getStock() < request.getQuantity()) {

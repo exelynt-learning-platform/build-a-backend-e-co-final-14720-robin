@@ -13,7 +13,7 @@ public class JwtUtil {
 
     private final String secret;
 
-    public JwtUtil(@Value("${jwt.secret:test-jwt-secret-key-for-development-only}") String secret) {
+    public JwtUtil(@Value("${jwt.secret}") String secret) {
         if (secret == null || secret.trim().isEmpty()) {
             throw new IllegalStateException("JWT secret is not configured. Set jwt.secret in environment or properties.");
         }

@@ -20,23 +20,12 @@ public class PaymentService {
 
     @PostConstruct
     public void init() {
-        // Only initialize Stripe if secret is provided, otherwise use lazy initialization
-        if (stripeSecret != null && !stripeSecret.trim().isEmpty()) {
-            Stripe.apiKey = stripeSecret.trim();
+        if (stripeSecret == null || stripeSecret.trim().isEmpty()) {
+            throw new IllegalStateException(
+                    "Stripe secret is not configured. Set STRIPE_SECRET environment variable.");
         }
-        // If not configured, Stripe will be initialized lazily on first use
-    }
-
-    private void ensureStripeInitialized() {
-        if (Stripe.apiKey == null) {
-            if (stripeSecret != null && !stripeSecret.trim().isEmpty()) {
-                Stripe.apiKey = stripeSecret.trim();
-                logger.info("Stripe API key initialized successfully");
-            } else {
-                logger.error("Stripe secret is not configured. Set stripe.secret via environment or properties.");
-                throw new IllegalStateException("Stripe secret is not configured. Set stripe.secret via environment or properties.");
-            }
-        }
+        Stripe.apiKey = stripeSecret.trim();
+        logger.info("Stripe API key initialized successfully");
     }
 
     public String createPaymentSession(Order order) throws Exception {
@@ -45,7 +34,6 @@ public class PaymentService {
         }
 
         logger.info("Creating payment session for order ID: {}", order.getId());
-        ensureStripeInitialized();
 
         SessionCreateParams params =
                 SessionCreateParams.builder()
@@ -71,11 +59,8 @@ public class PaymentService {
                         .build();
 
         Session session = Session.create(params);
-        logger.info("Payment session created successfully for order ID: {}, session URL: {}", order.getId(), session.getUrl());
+        logger.info("Payment session created for order ID: {}, URL: {}", order.getId(), session.getUrl());
 
         return session.getUrl();
     }
 }
-
-
-

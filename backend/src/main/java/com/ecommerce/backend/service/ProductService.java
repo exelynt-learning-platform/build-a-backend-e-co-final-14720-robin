@@ -3,9 +3,11 @@ package com.ecommerce.backend.service;
 import com.ecommerce.backend.dto.ProductDTO;
 import com.ecommerce.backend.dto.ProductResponse;
 import com.ecommerce.backend.entity.Product;
+import com.ecommerce.backend.exception.ResourceNotFoundException;
 import com.ecommerce.backend.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -16,7 +18,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
 
-
+    @Transactional
     public Product createProduct(ProductDTO dto) {
         Product product = Product.builder()
                 .name(dto.getName())
@@ -45,10 +47,10 @@ public class ProductService {
                 product.getImageUrl());
     }
 
-
+    @Transactional
     public Product updateProduct(Long id, ProductDTO dto) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
 
         product.setName(dto.getName());
         product.setDescription(dto.getDescription());
@@ -59,7 +61,11 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    @Transactional
     public void deleteProduct(Long id) {
+        if (!productRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Product not found with id: " + id);
+        }
         productRepository.deleteById(id);
     }
-}
+}
