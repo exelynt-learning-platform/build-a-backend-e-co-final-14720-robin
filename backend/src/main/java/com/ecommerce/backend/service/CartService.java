@@ -4,9 +4,13 @@ import com.ecommerce.backend.dto.CartRequest;
 import com.ecommerce.backend.entity.Cart;
 import com.ecommerce.backend.entity.Product;
 import com.ecommerce.backend.entity.User;
+import com.ecommerce.backend.exception.InsufficientStockException;
+import com.ecommerce.backend.exception.InvalidRequestException;
+import com.ecommerce.backend.exception.ResourceNotFoundException;
 import com.ecommerce.backend.repository.CartRepository;
 import com.ecommerce.backend.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,18 +25,18 @@ public class CartService {
 
     public Cart addToCart(User user, CartRequest request) {
         if (user == null) {
-            throw new IllegalArgumentException("User must not be null");
+            throw new InvalidRequestException("User must not be null");
         }
 
         if (request == null || request.getQuantity() <= 0) {
-            throw new IllegalArgumentException("Invalid cart request quantity");
+            throw new InvalidRequestException("Invalid cart request quantity");
         }
 
         Product product = productRepository.findById(request.getProductId())
-                .orElseThrow(() -> new RuntimeException("Product not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
         if (product.getStock() < request.getQuantity()) {
-            throw new RuntimeException("Insufficient stock for product: " + product.getName());
+            throw new InsufficientStockException("Insufficient stock for product: " + product.getName());
         }
 
         // Check if cart item already exists for this user and product
@@ -44,7 +48,7 @@ public class CartService {
             int newQuantity = cart.getQuantity() + request.getQuantity();
 
             if (product.getStock() < newQuantity) {
-                throw new RuntimeException("Insufficient stock for product: " + product.getName());
+                throw new InsufficientStockException("Insufficient stock for product: " + product.getName());
             }
 
             cart.setQuantity(newQuantity);
@@ -66,10 +70,10 @@ public class CartService {
 
     public void removeFromCart(Long cartId, User user) {
         Cart cart = cartRepository.findById(cartId)
-                .orElseThrow(() -> new RuntimeException("Cart not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
 
-        if (cart.getUser() == null || user == null || !cart.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Unauthorized or invalid cart");
+        if (!cart.getUser().getId().equals(user.getId())) {
+            throw new AccessDeniedException("You can only remove items from your own cart");
         }
 
         cartRepository.delete(cart);

@@ -40,6 +40,9 @@ public class SecurityConfig {
                                 "/swagger-ui.html"
                         ).permitAll()
                         .requestMatchers("GET", "/api/products/**").permitAll()
+                        .requestMatchers("POST", "/api/products/**").hasRole("ADMIN")
+                        .requestMatchers("PUT", "/api/products/**").hasRole("ADMIN")
+                        .requestMatchers("DELETE", "/api/products/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);

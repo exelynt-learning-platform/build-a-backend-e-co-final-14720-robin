@@ -16,10 +16,10 @@ public class PaymentService {
 
     @PostConstruct
     public void init() {
-        if (stripeSecret == null || stripeSecret.isBlank()) {
+        if (stripeSecret == null || stripeSecret.trim().isEmpty()) {
             throw new IllegalStateException("Stripe secret is not configured. Set stripe.secret via environment or properties.");
         }
-        Stripe.apiKey = stripeSecret;
+        Stripe.apiKey = stripeSecret.trim();
     }
 
     public String createPaymentSession(Order order) throws Exception {
