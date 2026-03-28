@@ -1,6 +1,7 @@
 package com.ecommerce.backend.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.util.List;
@@ -19,12 +20,17 @@ public class Order {
     private Long id;
 
     @ManyToOne
+    @NotNull(message = "Order must have a user")
     private User user;
 
+    @DecimalMin(value = "0.00", message = "Total price must be non-negative")
     private double totalPrice;
 
-    private String status;
+    @NotNull(message = "Order status is required")
+    @Enumerated(EnumType.STRING)
+    private OrderStatus status;
 
+    @NotBlank(message = "Shipping address is required")
     private String shippingAddress;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)

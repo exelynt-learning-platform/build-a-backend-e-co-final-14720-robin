@@ -147,7 +147,7 @@ class OrderServiceConcurrencyTest {
         // First order should succeed
         Order order1 = orderService.createOrder(testUser, request);
         assertNotNull(order1);
-        assertEquals("PENDING", order1.getStatus());
+        assertEquals(OrderStatus.PENDING, order1.getStatus());
         assertEquals(20.0, order1.getTotalPrice()); // 2 items * $10
 
         // Verify stock is depleted

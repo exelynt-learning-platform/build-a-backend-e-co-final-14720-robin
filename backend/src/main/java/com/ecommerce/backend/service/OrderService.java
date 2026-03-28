@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,8 +30,8 @@ public class OrderService {
             throw new RuntimeException("Cart is empty");
         }
 
-        // Calculate total first
-        double total = 0;
+        // Calculate total first using BigDecimal for currency precision
+        BigDecimal total = BigDecimal.ZERO;
         for (Cart cart : cartItems) {
             Product product = cart.getProduct();
             if (product == null) {
@@ -38,21 +40,25 @@ public class OrderService {
 
             int qty = cart.getQuantity();
             if (qty <= 0) {
-                throw new RuntimeException("Invalid quantity in cart");
+                throw new RuntimeException("Invalid quantity in cart: " + qty);
             }
 
             if (product.getStock() < qty) {
                 throw new RuntimeException("Insufficient stock for product: " + product.getName());
             }
 
-            total += qty * product.getPrice();
+            BigDecimal itemTotal = BigDecimal.valueOf(product.getPrice()).multiply(BigDecimal.valueOf(qty));
+            total = total.add(itemTotal);
         }
+
+        // Round to 2 decimal places for currency
+        total = total.setScale(2, RoundingMode.HALF_UP);
 
         // Build order with correct total
         Order order = Order.builder()
                 .user(user)
-                .totalPrice(total)
-                .status("PENDING")
+                .totalPrice(total.doubleValue())
+                .status(OrderStatus.PENDING)
                 .shippingAddress(request.getShippingAddress())
                 .build();
 
@@ -62,13 +68,13 @@ public class OrderService {
         for (Cart cart : cartItems) {
             Product product = cart.getProduct();
             int qty = cart.getQuantity();
-            double price = product.getPrice();
+            BigDecimal price = BigDecimal.valueOf(product.getPrice()).setScale(2, RoundingMode.HALF_UP);
 
             OrderItem item = OrderItem.builder()
                     .order(order)
                     .product(product)
                     .quantity(qty)
-                    .price(price)
+                    .price(price.doubleValue())
                     .build();
 
             orderItems.add(item);
@@ -95,23 +101,15 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
 
-        // Validate status
-        if (!isValidStatus(status)) {
-            throw new IllegalArgumentException("Invalid order status: " + status);
+        try {
+            OrderStatus orderStatus = OrderStatus.valueOf(status.toUpperCase());
+            order.setStatus(orderStatus);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid order status: " + status +
+                ". Valid statuses are: PENDING, PROCESSING, SHIPPED, DELIVERED, CANCELLED");
         }
 
-        order.setStatus(status);
         return orderRepository.save(order);
-    }
-
-    private boolean isValidStatus(String status) {
-        return status != null && (
-            status.equals("PENDING") ||
-            status.equals("PROCESSING") ||
-            status.equals("SHIPPED") ||
-            status.equals("DELIVERED") ||
-            status.equals("CANCELLED")
-        );
     }
 
     public List<Order> getUserOrders(User user) {
