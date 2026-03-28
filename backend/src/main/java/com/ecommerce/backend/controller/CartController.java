@@ -4,7 +4,6 @@ import com.ecommerce.backend.dto.CartRequest;
 import com.ecommerce.backend.entity.Cart;
 import com.ecommerce.backend.entity.User;
 import com.ecommerce.backend.service.CartService;
-import com.ecommerce.backend.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.ResponseEntity;
@@ -18,23 +17,18 @@ import java.util.List;
 public class CartController {
 
     private final CartService cartService;
-    private final UserService userService;
 
     @PostMapping("/add")
     public ResponseEntity<Cart> addToCart(
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User userDetails,
+            @AuthenticationPrincipal User user,
             @RequestBody CartRequest request) {
-
-        User user = userService.findByUsername(userDetails.getUsername());
 
         return ResponseEntity.ok(cartService.addToCart(user, request));
     }
 
     @GetMapping
     public ResponseEntity<List<Cart>> getCart(
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User userDetails) {
-
-        User user = userService.findByUsername(userDetails.getUsername());
+            @AuthenticationPrincipal User user) {
 
         return ResponseEntity.ok(cartService.getUserCart(user));
     }
@@ -42,9 +36,7 @@ public class CartController {
     @DeleteMapping("/{id}")
     public ResponseEntity<String> remove(
             @PathVariable("id") Long id,
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User userDetails) {
-
-        User user = userService.findByUsername(userDetails.getUsername());
+            @AuthenticationPrincipal User user) {
 
         cartService.removeFromCart(id, user);
 
