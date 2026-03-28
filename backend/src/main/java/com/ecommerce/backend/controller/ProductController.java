@@ -3,6 +3,7 @@ package com.ecommerce.backend.controller;
 import com.ecommerce.backend.dto.ProductDTO;
 import com.ecommerce.backend.entity.Product;
 import com.ecommerce.backend.service.ProductService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +18,7 @@ public class ProductController {
     private final ProductService productService;
 
     @PostMapping
-    public ResponseEntity<Product> create(@RequestBody ProductDTO dto) {
+    public ResponseEntity<Product> create(@Valid @RequestBody ProductDTO dto) {
         return ResponseEntity.ok(productService.createProduct(dto));
     }
 
@@ -28,7 +29,7 @@ public class ProductController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Product> update(@PathVariable Long id,
-                                          @RequestBody ProductDTO dto) {
+                                          @Valid @RequestBody ProductDTO dto) {
         return ResponseEntity.ok(productService.updateProduct(id, dto));
     }
 

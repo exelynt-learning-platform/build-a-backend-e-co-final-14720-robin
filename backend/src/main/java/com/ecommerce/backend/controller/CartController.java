@@ -4,6 +4,7 @@ import com.ecommerce.backend.dto.CartRequest;
 import com.ecommerce.backend.entity.Cart;
 import com.ecommerce.backend.entity.User;
 import com.ecommerce.backend.service.CartService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,7 @@ public class CartController {
     @PostMapping("/add")
     public ResponseEntity<Cart> addToCart(
             @AuthenticationPrincipal User user,
-            @RequestBody CartRequest request) {
+            @Valid @RequestBody CartRequest request) {
 
         return ResponseEntity.ok(cartService.addToCart(user, request));
     }

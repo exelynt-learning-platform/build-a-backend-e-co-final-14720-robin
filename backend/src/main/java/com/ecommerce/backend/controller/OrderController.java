@@ -4,6 +4,7 @@ import com.ecommerce.backend.dto.OrderRequest;
 import com.ecommerce.backend.entity.Order;
 import com.ecommerce.backend.entity.User;
 import com.ecommerce.backend.service.OrderService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.http.ResponseEntity;
@@ -21,7 +22,7 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<Order> createOrder(
             @AuthenticationPrincipal User user,
-            @RequestBody OrderRequest request) {
+            @Valid @RequestBody OrderRequest request) {
 
         return ResponseEntity.ok(orderService.createOrder(user, request));
     }
