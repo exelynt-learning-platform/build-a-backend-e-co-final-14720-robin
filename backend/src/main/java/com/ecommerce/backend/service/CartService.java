@@ -10,8 +10,10 @@ import com.ecommerce.backend.exception.ResourceNotFoundException;
 import com.ecommerce.backend.repository.CartRepository;
 import com.ecommerce.backend.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +25,7 @@ public class CartService {
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
 
+    @Transactional
     public Cart addToCart(User user, CartRequest request) {
         if (user == null) {
             throw new InvalidRequestException("User must not be null");
@@ -68,6 +71,7 @@ public class CartService {
     }
 
 
+    @Transactional
     public void removeFromCart(Long cartId, User user) {
         Cart cart = cartRepository.findById(cartId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));

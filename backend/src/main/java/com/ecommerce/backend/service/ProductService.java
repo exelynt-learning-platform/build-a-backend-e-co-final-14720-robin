@@ -1,12 +1,14 @@
 package com.ecommerce.backend.service;
 
 import com.ecommerce.backend.dto.ProductDTO;
+import com.ecommerce.backend.dto.ProductResponse;
 import com.ecommerce.backend.entity.Product;
 import com.ecommerce.backend.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,8 +29,20 @@ public class ProductService {
         return productRepository.save(product);
     }
 
-    public List<Product> getAllProducts() {
-        return productRepository.findAll();
+    public List<ProductResponse> getAllProducts() {
+        return productRepository.findAll().stream()
+                .map(this::convertToProductResponse)
+                .collect(Collectors.toList());
+    }
+
+    public ProductResponse convertToProductResponse(Product product) {
+        return new ProductResponse(
+                product.getId(),
+                product.getName(),
+                product.getDescription(),
+                product.getPrice(),
+                product.getStock(),
+                product.getImageUrl());
     }
 
 

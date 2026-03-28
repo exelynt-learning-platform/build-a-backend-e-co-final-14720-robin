@@ -1,5 +1,6 @@
 package com.ecommerce.backend.dto;
 
+import com.ecommerce.backend.entity.OrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -11,7 +12,7 @@ public class OrderResponse {
 
     private Long orderId;
     private double totalPrice;
-    private String status;
+    private OrderStatus status;
     private String shippingAddress;
-    private List<CartResponse> items;
+    private List<OrderItemResponse> items;
 }

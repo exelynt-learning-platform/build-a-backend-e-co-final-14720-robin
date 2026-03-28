@@ -1,6 +1,7 @@
 package com.ecommerce.backend.controller;
 
 import com.ecommerce.backend.dto.OrderRequest;
+import com.ecommerce.backend.dto.OrderResponse;
 import com.ecommerce.backend.entity.Order;
 import com.ecommerce.backend.entity.User;
 import com.ecommerce.backend.service.OrderService;
@@ -21,15 +22,17 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<Order> createOrder(
+    public ResponseEntity<OrderResponse> createOrder(
             @AuthenticationPrincipal User user,
             @Valid @RequestBody OrderRequest request) {
 
-        return ResponseEntity.ok(orderService.createOrder(user, request));
+        Order order = orderService.createOrder(user, request);
+        OrderResponse response = orderService.convertToOrderResponse(order);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    public ResponseEntity<List<Order>> getOrders(
+    public ResponseEntity<List<OrderResponse>> getOrders(
             @AuthenticationPrincipal User user) {
 
         return ResponseEntity.ok(orderService.getUserOrders(user));
@@ -37,10 +40,12 @@ public class OrderController {
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Order> updateOrderStatus(
+    public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable Long id,
             @RequestParam String status) {
 
-        return ResponseEntity.ok(orderService.updateOrderStatus(id, status));
+        Order order = orderService.updateOrderStatus(id, status);
+        OrderResponse response = orderService.convertToOrderResponse(order);
+        return ResponseEntity.ok(response);
     }
 }

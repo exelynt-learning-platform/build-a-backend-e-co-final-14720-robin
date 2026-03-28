@@ -1,6 +1,8 @@
 package com.ecommerce.backend.service;
 
+import com.ecommerce.backend.dto.OrderItemResponse;
 import com.ecommerce.backend.dto.OrderRequest;
+import com.ecommerce.backend.dto.OrderResponse;
 import com.ecommerce.backend.entity.*;
 import com.ecommerce.backend.repository.CartRepository;
 import com.ecommerce.backend.repository.OrderRepository;
@@ -8,11 +10,14 @@ import com.ecommerce.backend.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +27,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductRepository productRepository;
 
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public Order createOrder(User user, OrderRequest request) {
 
         List<Cart> cartItems = cartRepository.findByUser(user);
@@ -64,11 +70,17 @@ public class OrderService {
 
         List<OrderItem> orderItems = new ArrayList<>();
 
-        // Create order items and update stock
+        // Create order items and update stock with optimistic locking
         for (Cart cart : cartItems) {
             Product product = cart.getProduct();
             int qty = cart.getQuantity();
             BigDecimal price = BigDecimal.valueOf(product.getPrice()).setScale(2, RoundingMode.HALF_UP);
+
+            // Check stock and update atomically
+            if (product.getStock() < qty) {
+                throw new RuntimeException("Insufficient stock for product: " + product.getName() +
+                    ". Available: " + product.getStock() + ", Requested: " + qty);
+            }
 
             OrderItem item = OrderItem.builder()
                     .order(order)
@@ -79,12 +91,13 @@ public class OrderService {
 
             orderItems.add(item);
 
-            // Update stock with optimistic locking
+            // Update stock with optimistic locking - this will throw exception if version changed
+            product.setStock(product.getStock() - qty);
             try {
-                product.setStock(product.getStock() - qty);
                 productRepository.save(product);
             } catch (ObjectOptimisticLockingFailureException e) {
-                throw new RuntimeException("Product " + product.getName() + " is currently being updated by another user. Please try again.");
+                throw new RuntimeException("Product " + product.getName() +
+                    " is currently being updated by another user. Please try again.");
             }
         }
 
@@ -97,6 +110,7 @@ public class OrderService {
         return savedOrder;
     }
 
+    @Transactional
     public Order updateOrderStatus(Long orderId, String status) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
@@ -112,7 +126,26 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-    public List<Order> getUserOrders(User user) {
-        return orderRepository.findByUser(user);
+    public List<OrderResponse> getUserOrders(User user) {
+        return orderRepository.findByUser(user).stream()
+                .map(this::convertToOrderResponse)
+                .collect(Collectors.toList());
+    }
+
+    public OrderResponse convertToOrderResponse(Order order) {
+        List<OrderItemResponse> items = order.getItems().stream()
+                .map(item -> new OrderItemResponse(
+                        item.getProduct().getId(),
+                        item.getProduct().getName(),
+                        item.getQuantity(),
+                        item.getPrice()))
+                .collect(Collectors.toList());
+
+        return new OrderResponse(
+                order.getId(),
+                order.getTotalPrice(),
+                order.getStatus(),
+                order.getShippingAddress(),
+                items);
     }
 }
