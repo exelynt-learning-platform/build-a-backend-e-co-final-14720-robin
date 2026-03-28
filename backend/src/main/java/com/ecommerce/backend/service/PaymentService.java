@@ -4,14 +4,28 @@ import com.ecommerce.backend.entity.Order;
 import com.stripe.Stripe;
 import com.stripe.model.checkout.Session;
 import com.stripe.param.checkout.SessionCreateParams;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PaymentService {
 
-    public String createPaymentSession(Order order) throws Exception {
+    @Value("${stripe.secret}")
+    private String stripeSecret;
 
-        Stripe.apiKey = "your_secret_key";
+    @PostConstruct
+    public void init() {
+        if (stripeSecret == null || stripeSecret.isBlank()) {
+            throw new IllegalStateException("Stripe secret is not configured. Set stripe.secret via environment or properties.");
+        }
+        Stripe.apiKey = stripeSecret;
+    }
+
+    public String createPaymentSession(Order order) throws Exception {
+        if (order == null) {
+            throw new IllegalArgumentException("Order must not be null");
+        }
 
         SessionCreateParams params =
                 SessionCreateParams.builder()

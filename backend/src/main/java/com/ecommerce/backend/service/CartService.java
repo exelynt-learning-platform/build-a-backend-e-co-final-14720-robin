@@ -19,9 +19,20 @@ public class CartService {
     private final ProductRepository productRepository;
 
     public Cart addToCart(User user, CartRequest request) {
+        if (user == null) {
+            throw new IllegalArgumentException("User must not be null");
+        }
+
+        if (request == null || request.getQuantity() <= 0) {
+            throw new IllegalArgumentException("Invalid cart request quantity");
+        }
 
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new RuntimeException("Product not found"));
+
+        if (product.getStock() < request.getQuantity()) {
+            throw new RuntimeException("Insufficient stock for product: " + product.getName());
+        }
 
         Cart cart = new Cart();
         cart.setUser(user);
@@ -36,18 +47,16 @@ public class CartService {
     }
 
 
-public void removeFromCart(Long cartId, User user) {
+    public void removeFromCart(Long cartId, User user) {
+        Cart cart = cartRepository.findById(cartId)
+                .orElseThrow(() -> new RuntimeException("Cart not found"));
 
-    Cart cart = cartRepository.findById(cartId)
-            .orElseThrow(() -> new RuntimeException("Cart not found"));
+        if (cart == null || cart.getUser() == null || user == null || !cart.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("Unauthorized or invalid cart");
+        }
 
-
-    if (cart.getUser() == null || !cart.getUser().getId().equals(user.getId())) {
-        throw new RuntimeException("Unauthorized or invalid cart");
+        cartRepository.delete(cart);
     }
-
-    cartRepository.delete(cart);
-}
 }
 
 
