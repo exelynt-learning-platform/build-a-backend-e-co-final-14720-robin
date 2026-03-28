@@ -16,16 +16,29 @@ public class PaymentService {
 
     @PostConstruct
     public void init() {
-        if (stripeSecret == null || stripeSecret.trim().isEmpty()) {
-            throw new IllegalStateException("Stripe secret is not configured. Set stripe.secret via environment or properties.");
+        // Only initialize Stripe if secret is provided, otherwise use lazy initialization
+        if (stripeSecret != null && !stripeSecret.trim().isEmpty()) {
+            Stripe.apiKey = stripeSecret.trim();
         }
-        Stripe.apiKey = stripeSecret.trim();
+        // If not configured, Stripe will be initialized lazily on first use
+    }
+
+    private void ensureStripeInitialized() {
+        if (Stripe.apiKey == null) {
+            if (stripeSecret != null && !stripeSecret.trim().isEmpty()) {
+                Stripe.apiKey = stripeSecret.trim();
+            } else {
+                throw new IllegalStateException("Stripe secret is not configured. Set stripe.secret via environment or properties.");
+            }
+        }
     }
 
     public String createPaymentSession(Order order) throws Exception {
         if (order == null) {
             throw new IllegalArgumentException("Order must not be null");
         }
+
+        ensureStripeInitialized();
 
         SessionCreateParams params =
                 SessionCreateParams.builder()
